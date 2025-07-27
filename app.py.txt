@@ -1,0 +1,36 @@
+import streamlit as st
+from PIL import Image
+import requests
+import io
+
+st.set_page_config(page_title="AI Image Generator", layout="centered")
+
+st.title("🎨 AI Image Generator")
+st.markdown("Generate **realistic AI images** using text prompts. Built with 💚 by Ayesha.")
+
+prompt = st.text_input("📝 Enter your image prompt", placeholder="e.g. A futuristic warrior in a glowing forest")
+negative_prompt = st.text_input("🚫 (Optional) Negative prompt", placeholder="e.g. blurry, distorted, low-res")
+
+num_images = st.slider("🖼️ Number of Images", 1, 4, 1)
+
+generate = st.button("🚀 Generate Image")
+
+# Dummy API (replace with real later)
+HF_TOKEN = "YOUR_HUGGINGFACE_TOKEN"
+MODEL_URL = "https://api-inference.huggingface.co/models/stabilityai/sdxl-turbo"
+
+headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+
+def query(payload):
+    response = requests.post(MODEL_URL, headers=headers, json=payload)
+    return response.content
+
+if generate:
+    with st.spinner("Generating... Please wait."):
+        for i in range(num_images):
+            image_bytes = query({
+                "inputs": prompt,
+                "parameters": {"negative_prompt": negative_prompt}
+            })
+            image = Image.open(io.BytesIO(image_bytes))
+            st.image(image, caption=f"Generated Image {i+1}", use_column_width=True)
