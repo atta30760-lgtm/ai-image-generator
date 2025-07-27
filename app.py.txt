@@ -1,36 +1,57 @@
 import streamlit as st
-from PIL import Image
 import requests
-import io
+from PIL import Image
+from io import BytesIO
 
 st.set_page_config(page_title="AI Image Generator", layout="centered")
+st.title("AI Image Generator")
+st.markdown("Generate stunning AI images using your prompt and selected model.")
 
-st.title("🎨 AI Image Generator")
-st.markdown("Generate **realistic AI images** using text prompts. Built with 💚 by Ayesha.")
+# Input fields
+prompt = st.text_area("Enter your prompt")
+negative_prompt = st.text_input("Enter negative prompt (optional)")
+model_id = st.text_input("Hugging Face model ID", value="stabilityai/stable-diffusion-2")
 
-prompt = st.text_input("📝 Enter your image prompt", placeholder="e.g. A futuristic warrior in a glowing forest")
-negative_prompt = st.text_input("🚫 (Optional) Negative prompt", placeholder="e.g. blurry, distorted, low-res")
+num_images = st.slider("Number of images", 1, 4, 1)
+guidance = st.slider("Guidance scale (higher = more accurate)", 1.0, 20.0, 7.5)
+steps = st.slider("Inference steps", 10, 100, 50)
 
-num_images = st.slider("🖼️ Number of Images", 1, 4, 1)
-
-generate = st.button("🚀 Generate Image")
-
-# Dummy API (replace with real later)
-HF_TOKEN = "YOUR_HUGGINGFACE_TOKEN"
-MODEL_URL = "https://api-inference.huggingface.co/models/stabilityai/sdxl-turbo"
-
-headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-
-def query(payload):
-    response = requests.post(MODEL_URL, headers=headers, json=payload)
-    return response.content
-
-if generate:
-    with st.spinner("Generating... Please wait."):
-        for i in range(num_images):
-            image_bytes = query({
+if st.button("Generate"):
+    if not prompt or not model_id:
+        st.warning("Please provide both a prompt and model ID.")
+    else:
+        with st.spinner("Generating images..."):
+            api_url = f"https://api-inference.huggingface.co/models/{model_id}"
+            headers = {"Authorization": f"Bearer YOUR_HUGGINGFACE_TOKEN"}  # Replace this with your token
+            payload = {
                 "inputs": prompt,
-                "parameters": {"negative_prompt": negative_prompt}
-            })
-            image = Image.open(io.BytesIO(image_bytes))
-            st.image(image, caption=f"Generated Image {i+1}", use_column_width=True)
+                "parameters": {
+                    "negative_prompt": negative_prompt,
+                    "num_images_per_prompt": num_images,
+                    "guidance_scale": guidance,
+                    "num_inference_steps": steps
+                }
+            }
+
+            response = requests.post(api_url, headers=headers, json=payload)
+
+            if response.status_code == 200:
+                try:
+                    results = response.json()
+                    for result in results:
+                        if isinstance(result, dict) and 'image' in result:
+                            image_data = requests.get(result['image'])
+                            img = Image.open(BytesIO(image_data.content))
+                            st.image(img, caption="Generated Image")
+                        elif isinstance(result, bytes):
+                            img = Image.open(BytesIO(result))
+                            st.image(img, caption="Generated Image")
+                        else:
+                            st.error("Unexpected image format returned.")
+                except Exception as e:
+                    st.error(f"Error displaying images: {e}")
+            else:
+                st.error("Failed to generate image. Check your model ID or token.")
+
+st.markdown("---")
+st.caption("Developed with ❤️ using Streamlit and Hugging Face")
